@@ -1,10 +1,9 @@
 import cv2
-import pandas as pd
-from ultralytics import YOLO
-import time
 import os
 import socket
 import pickle
+import time
+from ultralytics import YOLO
 
 # Initialize YOLO model
 model = YOLO('yolov8s.pt')
@@ -60,7 +59,7 @@ def detect_people_live():
 
     # Connect to the server
     client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    client_socket.connect(('localhost', 65432))  # Adjust host and port as needed
+    client_socket.connect(('192.168.11.142', 65432))  # Adjust host and port as needed
 
     try:
         while True:

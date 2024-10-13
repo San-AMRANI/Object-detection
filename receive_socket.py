@@ -1,13 +1,9 @@
 import socket
-import os
 import cv2
 import numpy as np
+import os
 
-# Create a directory to store received faces
-if not os.path.exists("received_faces"):
-    os.makedirs("received_faces")
-
-def start_server(host='127.0.0.1', port=65432):
+def start_server(host='0.0.0.0', port=65432):
     """Starts a TCP server to receive images."""
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server_socket:
         server_socket.bind((host, port))
@@ -19,8 +15,9 @@ def start_server(host='127.0.0.1', port=65432):
             print(f"Connected by {addr}")
             while True:
                 # Receive the size of the incoming image first
-                img_size_data = conn.recv(8)  # Assuming image size will be sent as a fixed-size header
+                img_size_data = conn.recv(8)  # Expecting 8 bytes for size
                 if not img_size_data:
+                    print("Connection closed.")
                     break
                 
                 # Unpack the size of the image
@@ -32,6 +29,7 @@ def start_server(host='127.0.0.1', port=65432):
                 while len(img_data) < img_size:
                     packet = conn.recv(4096)
                     if not packet:
+                        print("Connection closed unexpectedly.")
                         break
                     img_data.extend(packet)
 
@@ -39,11 +37,16 @@ def start_server(host='127.0.0.1', port=65432):
                 img_np = np.frombuffer(img_data, np.uint8)
                 img = cv2.imdecode(img_np, cv2.IMREAD_COLOR)
 
-                # Save the received image
-                face_id = len(os.listdir("received_faces")) + 1  # Unique ID for each received face
-                face_path = f"received_faces/person_{face_id}.png"
-                cv2.imwrite(face_path, img)
-                print(f"Received and saved face as {face_path}")
+                # Ensure the image is valid before saving
+                if img is not None and img.size > 0:
+                    # Save the received image
+                    face_id = len(os.listdir("received_faces")) + 1  # Unique ID for each received face
+                    face_path = f"received_faces/person_{face_id}.png"
+                    cv2.imwrite(face_path, img)
+                    print(f"Received and saved face as {face_path}")
+                else:
+                    print("Failed to decode image. Image may be empty.")
 
 if __name__ == "__main__":
+    os.makedirs("received_faces", exist_ok=True)  # Create the directory if it doesn't exist
     start_server()
