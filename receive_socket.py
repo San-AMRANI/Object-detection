@@ -1,102 +1,49 @@
 import socket
-import pickle
 import os
-import sys
-import numpy as np
 import cv2
-from ultralytics import YOLO
-from datetime import datetime
+import numpy as np
 
-# Define the server class
-class Server:
-    def __init__(self, host='localhost', port=80, num_clients=1):
-        self.host = host
-        self.port = port
-        self.num_clients = num_clients
-        self.client_sockets = []
-        self.csv = [
-            ["time", "people"]
-        ]
-    
-    def start(self):
-        # Start the server socket
-        server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        server_socket.bind((self.host, self.port))
-        server_socket.listen(self.num_clients)
-        
-        print(f"Server started, waiting for {self.num_clients} clients to connect...")
-        for _ in range(self.num_clients):
-            client, addr = server_socket.accept()
-            self.client_sockets.append(client)
-            print(f"Client {addr} connected.")
+# Create a directory to store received faces
+if not os.path.exists("received_faces"):
+    os.makedirs("received_faces")
 
+def start_server(host='127.0.0.1', port=65432):
+    """Starts a TCP server to receive images."""
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server_socket:
+        server_socket.bind((host, port))
+        server_socket.listen()
+        print(f"Server listening on {host}:{port}...")
 
-        self.collect_results()
-        self.close_connections()
-    
-    def collect_results(self):
-        yolo_net = YOLO("yolov8n.pt")
-        result = []
-        try:
+        conn, addr = server_socket.accept()
+        with conn:
+            print(f"Connected by {addr}")
             while True:
-                for client_socket in self.client_sockets:
-                    while True:
-                        data = b""
-                        result = None
-                        while True:
-                            packet = client_socket.recv(4096)
-                            if str.encode("foto") in packet:
-                                index = packet.find(str.encode("foto"))
-                                packet = packet[:index]
-                                data+=packet
-                                break
-                            else: 
-                                data+=packet
-                        try:
-                            result = pickle.loads(data)
-                        except:
-                            client_socket.sendall(str(0).encode('utf8'))
-                            continue
-                        if result is not None:
-                            print(f"[INFO] Client {client_socket.getpeername()} Data Received!")
-                            print(f"[INFO] Evaluating the data...")
-                            detections = yolo_net.predict(source=result);
-                            person_count=0
-                            for detection in detections[0]:
-                                class_id = detection.boxes.cls.item()
-                                confidence = detection.boxes.conf.item()
-
-                                # Check if the detected object is a person (class_id 0)
-                                if class_id == 0 and confidence > 0.5:
-                                    person_count = person_count + 1
-                            print(f"People Counter: {person_count}\n")
-                            self.csv.append([datetime.now().strftime("%Y-%m-%d %H:%M:%S"), person_count])
-                            client_socket.sendall(str(person_count).encode('utf8'))
-                            break
-
-                print("-"*80)
+                # Receive the size of the incoming image first
+                img_size_data = conn.recv(8)  # Assuming image size will be sent as a fixed-size header
+                if not img_size_data:
+                    break
                 
-        except KeyboardInterrupt:
-            self.stop_server()
+                # Unpack the size of the image
+                img_size = int.from_bytes(img_size_data, byteorder='big')
+                print(f"Expecting an image of size: {img_size} bytes")
 
+                # Receive the actual image data
+                img_data = bytearray()
+                while len(img_data) < img_size:
+                    packet = conn.recv(4096)
+                    if not packet:
+                        break
+                    img_data.extend(packet)
 
-    def save_csv(self):
-        with open("people_counter.csv", "w") as f:
-            for row in self.csv:
-                f.write(",".join(map(str, row)) + "\n")
-        print("CSV file saved.")
-        
-    def close_connections(self):            
-        for client_socket in self.client_sockets:
-            client_socket.close()
-        print("All connections closed.")
-    
-    def stop_server(self):
-        self.save_csv()
-        self.close_connections()
-        sys.exit(0)
+                # Convert the byte array back to an image
+                img_np = np.frombuffer(img_data, np.uint8)
+                img = cv2.imdecode(img_np, cv2.IMREAD_COLOR)
 
-# Start the server
+                # Save the received image
+                face_id = len(os.listdir("received_faces")) + 1  # Unique ID for each received face
+                face_path = f"received_faces/person_{face_id}.png"
+                cv2.imwrite(face_path, img)
+                print(f"Received and saved face as {face_path}")
+
 if __name__ == "__main__":
-    server = Server()
-    server.start()
+    start_server()
