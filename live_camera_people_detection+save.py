@@ -42,10 +42,15 @@ def send_face_to_server(face_path, client_socket):
         img_data = img_file.read()
         img_size = len(img_data)
         
-        # Send the size of the image first
-        client_socket.sendall(img_size.to_bytes(8, byteorder='big'))  # Send image size as 8 bytes
-        client_socket.sendall(img_data)  # Send the actual image data
-        print(f"Sent {face_path} ({img_size} bytes) to the server.")
+        # Check the size of the image before sending
+        if img_size > 0:
+            # Send the size of the image first
+            client_socket.sendall(img_size.to_bytes(8, byteorder='big'))  # Send image size as 8 bytes
+            client_socket.sendall(img_data)  # Send the actual image data
+            print(f"Sent {face_path} ({img_size} bytes) to the server.")
+        else:
+            print(f"Error: The image {face_path} is empty and will not be sent.")
+
 
 def detect_people_live():
     # Open the webcam

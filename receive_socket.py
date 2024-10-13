@@ -3,7 +3,7 @@ import cv2
 import numpy as np
 import os
 
-def start_server(host='0.0.0.0', port=65432):
+def start_server(host='192.168.11.142', port=65432):
     """Starts a TCP server to receive images."""
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server_socket:
         server_socket.bind((host, port))
@@ -19,9 +19,15 @@ def start_server(host='0.0.0.0', port=65432):
                 if not img_size_data:
                     print("Connection closed.")
                     break
-                
+
                 # Unpack the size of the image
                 img_size = int.from_bytes(img_size_data, byteorder='big')
+                
+                # Validate image size
+                if img_size <= 0 or img_size > 10 * 1024 * 1024:  # Limit to 10MB for safety
+                    print(f"Received invalid image size: {img_size}. Closing connection.")
+                    break
+                
                 print(f"Expecting an image of size: {img_size} bytes")
 
                 # Receive the actual image data
