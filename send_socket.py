@@ -2,32 +2,26 @@ import socket
 import numpy as np
 import cv2
 from mss import mss
-from PIL import Image
 from pynput.mouse import Listener
 import pickle
-from datetime import datetime
-import matplotlib.pyplot as plt
-import pandas as pd
-from time import sleep
 import time
 
 # Define the client class
 class Client:
-    def __init__(self, host='localhost', port=80):
+    def __init__(self, host='localhost', port=65432):
         self.host = host
         self.port = port
-        self.close_socket = False
         self.cont = 0
         self.pos = {"x": [], "y": []}
 
     def is_clicked(self, x, y, button, pressed):
         if pressed:
-            print('Clicked ! ')  # in your case, you can move it to some other pos
+            print('Clicked!')
             self.pos["x"].append(x)
             self.pos["y"].append(y)
             self.cont += 1
             if self.cont == 2:
-                return False  # to stop the thread after click
+                return False  # stop the listener after two clicks
             
     def start(self):
         # Start the client socket
@@ -38,12 +32,15 @@ class Client:
         with Listener(on_click=self.is_clicked) as listener:
             listener.join()
             
-            
         try:
-            bounding_box = {'top': self.pos["y"][0], 'left': self.pos["x"][0], 'width': self.pos["x"][1] - self.pos["x"][0], 'height': self.pos["y"][1] - self.pos["y"][0]}
+            bounding_box = {
+                'top': self.pos["y"][0],
+                'left': self.pos["x"][0],
+                'width': self.pos["x"][1] - self.pos["x"][0],
+                'height': self.pos["y"][1] - self.pos["y"][0]
+            }
 
             sct = mss()
-            
             last_saved_time = time.time()
             save_interval = 5  # seconds
 
@@ -52,7 +49,6 @@ class Client:
                 sct_img = sct.grab(bounding_box)
                 screen_np = np.array(sct_img)
                 screen_np = cv2.cvtColor(screen_np, cv2.COLOR_RGB2BGR)
-                screen_np = cv2.cvtColor(screen_np, cv2.COLOR_BGR2RGB)
 
                 # Display the screen capture
                 cv2.imshow('screen', screen_np)
@@ -62,11 +58,16 @@ class Client:
                 if current_time - last_saved_time >= save_interval:
                     print(f"[INFO] Sending Data...")
                     result = pickle.dumps(screen_np)
+
+                    # Send the size of the data first
+                    size = len(result)
+                    client_socket.sendall(size.to_bytes(4, byteorder='big'))  # Send size as 4 bytes
+
+                    # Send the image data
                     client_socket.sendall(result)
-                    client_socket.sendall(str.encode("foto"))
-                    sleep(1)
+
+                    # Wait for acknowledgment from the server
                     data = client_socket.recv(5)
-                    # decode to unicode string
                     people_counter = int(data.decode('utf8'))
                     last_saved_time = current_time
                     print("[INFO] Data Received...")
