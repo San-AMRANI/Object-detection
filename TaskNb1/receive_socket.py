@@ -3,7 +3,7 @@ import cv2
 import numpy as np
 import os
 
-def start_server(host='192.168.11.142', port=65432):
+def start_server(host='192.168.1.116', port=65432):
     """Starts a TCP server to receive images."""
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server_socket:
         server_socket.bind((host, port))
