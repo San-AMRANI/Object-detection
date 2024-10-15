@@ -1,7 +1,6 @@
 import cv2
 import os
 import socket
-import pickle
 import time
 from ultralytics import YOLO
 
@@ -51,7 +50,6 @@ def send_face_to_server(face_path, client_socket):
         else:
             print(f"Error: The image {face_path} is empty and will not be sent.")
 
-
 def detect_people_live():
     # Open the webcam
     cap = cv2.VideoCapture(0)
@@ -64,7 +62,7 @@ def detect_people_live():
 
     # Connect to the server
     client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    client_socket.connect(('192.168.11.142', 65432))  # Adjust host and port as needed
+    client_socket.connect(('192.168.1.116', 65432))  # Adjust host and port as needed
 
     try:
         while True:
@@ -109,6 +107,10 @@ def detect_people_live():
                                 if current_time - timestamp >= 3:  # 3-second delay
                                     face_path = save_face(frame, current_box, person_id_counter)
                                     send_face_to_server(face_path, client_socket)  # Send the face to the server
+                                    
+                                    # Introduce a delay between sending images
+                                    time.sleep(2)  # Delay for 2 seconds (adjust as needed)
+                                    
                                     person_id_counter += 1
                                     detected_people[saved_box] = (timestamp, True)  # Mark as saved
                                 # Draw red rectangle before saving
