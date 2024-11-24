@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 from datetime import datetime
 import time
 
-def start_server(host='127.0.0.1', port=65432):
+def start_server(host='0.0.0.0', port=65432):
     """Starts a TCP server to receive images and log detections."""
     # Initialize detection statistics
     detections_per_minute = {}
